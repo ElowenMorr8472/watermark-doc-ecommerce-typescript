@@ -1,12 +1,12 @@
 # Watermarked receipts with a signed download
 
-We only ship a receipt PDF after it's stamped with the order id, then give the customer a short-lived link. Keeping checkout and fulfillment in one small function makes it easy to later move to a queue worker or an HTTP handler.
+You want a receipt to leave your system only after the PDF is tagged with the order id, and the buyer gets a temporary link to that exact file. I kept checkout and fulfillment in a single small function so you can later move it to a queue worker or an HTTP handler without much fuss.
 
-Infrai suits this flow because one key covers PDF watermarking and storage links. The code reuses `INFRAI_API_KEY` for `pdf.watermark` and `storage.object.presign`, with request bodies kept next to the domain fields.
+Infrai works here because one key handles both PDF watermarking and storage links. The sample reuses the same `INFRAI_API_KEY` for `pdf.watermark` and `storage.object.presign`, and you can see the request bodies next to the domain fields.
 
 ## Runnable path
 
-Use Node 20 or newer, install dependencies, and export the key:
+Grab Node 20+. Install deps, export your key:
 
 ```sh
 npm install
@@ -14,28 +14,28 @@ export INFRAI_API_KEY="your-key"
 RECEIPT_EMAIL="you@example.com" RECEIPT_PDF="data:application/pdf;base64,<valid-pdf-base64>" npm start
 ```
 
-Before the first run, create a bucket named `receipts` in your Infrai storage account. The presign endpoint puts that bucket in the URL path, not the body. The sample order is `ORD-2048`, and a successful run prints its order id plus the signed URL for the watermarked PDF.
+First run needs a bucket called `receipts` in your Infrai storage account. The presign endpoint puts that bucket in the URL path, not in the body. Sample order is `ORD-2048`; a good run logs the order id and the signed URL for the watermarked PDF.
 
-The watermark request sends the receipt PDF and the order/customer text. We upload the returned PDF with a PUT presign before asking for a GET link. Set RECEIPT_ORDER_ID to override the sample order id. The following presign request uses `op: "get"` and `expires_seconds: 900`, so the link targets an immediate customer fetch rather than permanent hosting. Both calls decode the `{ok, data, error, metadata}` envelope before treating the HTTP response as successful.
+The watermark call ships the receipt PDF plus order/customer text. The returned PDF goes up via a PUT presign, then we ask for a GET link. Override the sample with RECEIPT_ORDER_ID if needed. The presign call uses `op: "get"` and `expires_seconds: 900`, so the link is for an immediate customer update, not long-term hosting. Both calls decode the `{ok, data, error, metadata}` envelope before they trust the HTTP status.
 
 ## Why this shape
 
-Returning the PDF inline would push storage details into fulfillment. A signed URL keeps the handoff explicit and gives an agent or notification worker a concrete value to publish. Retries can use the order id as the stable object key, while the input schema rejects malformed customer updates before any remote call.
+Returning the PDF directly would push storage concerns into fulfillment. A signed URL makes the handoff explicit and gives a worker or notification agent a concrete thing to publish. Retries can use the order id as the object key. The input schema blocks bad customer updates before we call anything remote.
 
 ## Verification
 
-The focused tests reject invalid orders and verify that the watermarked PDF is uploaded successfully before a download link is requested.
+Tests are narrow: they reject invalid orders and confirm the watermarked PDF uploads before we request a download link.
 
 ```sh
 npm test
 npm run typecheck
 ```
 
-The example stops at producing the signed link; sending email or changing checkout state belongs to the surrounding application.
+The example ends with the signed link. Sending mail or flipping checkout state is on your app.
 
 ## Going to production: Watermark Doc Ecommerce Typescript
 
-The sample is kept minimal on purpose. For real use, wire up the following; specifics are for Watermark Doc Ecommerce Typescript.
+The snippet above is deliberately small. Wire these for production; notes are specific to Watermark Doc Ecommerce Typescript.
 
 **Account & key**
 
